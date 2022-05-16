@@ -1,44 +1,62 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.interpolate import CubicSpline
 
 
 def cria_matriz_A(y, h):
     '''
-    Cria a matriz A, com 4h na diagonal principal e h nas imediatas lateirais,
-    considerando espaçamento uniforme de pontos (hk = h)
+    Cria a matriz A
 
     y = lista de valores de y
-    h = espaçamento entre pontos
+    h = lista de espaçamento entre pontos
     '''
-    n = len(y) - 2
+    n = len(y)
     matriz = np.zeros((n, n), dtype=float)
 
     for i in range(n):
         for j in range(n):
             if (i == j):
-                matriz[i][j] = 4*h
+                if (i == 0 or i == n - 1):
+                    matriz[i][j] = 1
 
-            elif (i - j == 1 or j - i == 1):
-                matriz[i][j] = h
+                else:
+                    matriz[i][j] = 2 * (h[i-1] + h[i])
+
+            elif (i - j == -1):
+                if (i == 0):
+                    matriz[i][j] = 0
+
+                else:
+                    matriz[i][j] = h[i]
+
+            elif (i - j == 1):
+                if (i == n - 1):
+                    matriz[i][j] = 0
+
+                else:
+                    matriz[i][j] = h[i-1]
 
     return matriz
 
 
 def cria_matriz_B(y, h):
     '''
-    Cria a matriz B, considerando espaçamento uniforme de pontos (hk = h)
+    Cria a matriz B
 
     y = lista de valores de x
-    h = espaçamento entre pontos
+    h = lista de espaçamento entre pontos
     '''
-    n = len(y) - 2
+    n = len(y)
     matriz = np.zeros((n, 1), dtype=float)
-    
-    for i in range(n):
-        matriz[i][0] = (6/h) * (y[i+2] - 2*y[i+1] + y[i])
 
-    return (matriz, h)
+    for i in range(n):
+        if (i != 0 and i != n-1):
+            matriz[i][0] = (3 * ((y[i+1] - y[i]) / h[i])) - \
+                (3 * ((y[i] - y[i-1])/h[i-1]))
+
+    print(f"b: {matriz}")
+    return (matriz)
 
 
 def spline_cubica(x, y, n):
@@ -49,14 +67,16 @@ def spline_cubica(x, y, n):
     y = lista de valores de y
     n = número de pontos a serem adicionados em cada espaçamentos
     '''
-    h = x[2] - x[1]
+    h = []
+
+    for i in range(len(x)-1):
+        h.append(x[i+1] - x[i])
 
     matriz_A = cria_matriz_A(y, h)
-    matriz_b, h = cria_matriz_B(y, h)
+    matriz_b = cria_matriz_B(y, h)
 
     g = np.linalg.solve(matriz_A, matriz_b)
     # insere os 0 para S0 e Sn, uma vez que a spline é natural
-    g = np.insert(g, [0, g.size], [0, 0])
 
     lista_x = []
     lista_y = []
@@ -64,24 +84,26 @@ def spline_cubica(x, y, n):
     x_i = x[0]
 
     for k in range(len(g)-1):  # loop para gerar cada uma das funções S; k vai até n-1
-        y_temp = []
 
-        a = (g[k+1] - g[k]) / (6*h)
-        b = g[k+1]/2
-        c = ((y[k+1] - y[k]) / h) + ((2*h*g[k+1] + g[k]*h) / 6)
-        d = y[k+1]
+        a = ((g[k+1] - g[k]) / (3 * h[k]))
+        b = g[k]
+        c = (1 / h[k]) * (y[k + 1] - y[k]) - (h[k] / 3) * (2 * g[k] + g[k+1])
+        d = y[k]
 
-        # loop para calcular os pontos intermediários no intervalo da função q
+        print(f'a[{k}]: {a}')
+        print(f'b[{k}]: {b}')
+        print(f'c[{k}]: {c}')
+        print(f'd[{k}]: {d}')
+
+        # loop para calcular os pontos intermediários no intervalo da função
         while (x_i <= x[k+1]):
-            y_i = a * ((x[k] - x_i) ** 3) + b * \
-                ((x[k] - x_i) ** 2) + c * (x[k] - x_i) + d
+            y_i = a * ((x_i - x[k]) ** 3) + b * \
+                ((x_i - x[k]) ** 2) + c * (x_i - x[k]) + d
 
-            y_temp.append(y_i)
+            lista_y.append(y_i)
             lista_x.append(x_i)
 
-            x_i += h/(n+1)
-
-        lista_y.extend(y_temp[::-1])
+            x_i += h[k]/(n+1)
 
     return (lista_x, lista_y)
 
@@ -89,22 +111,21 @@ def spline_cubica(x, y, n):
 if __name__ == "__main__":
     offsets = pd.read_excel(r"offsets.xlsx")
     offsets.reset_index(drop=True)
-    
-    n = int(input("Quantidade de pontos a serem criados entre cada espaçamento: "))
-    
+
+    # int(input("Quantidade de pontos a serem criados entre cada espaçamento: "))
+    n = 50
+
     is_x = True
     for column in offsets:
         if is_x:
             x = offsets[column].to_numpy()
             is_x = False
-            print("X: ", x)
         else:
             y = offsets[column].to_numpy()
             lista_x, lista_y = spline_cubica(x, y, n)
-            
-            print("Y: ", y)
 
-            plt.plot(lista_x, lista_y)
-    
+            plt.plot(lista_x, lista_y, "k")
+
     plt.axis("equal")
+    plt.savefig("boat.png", transparent=False, dpi=120)
     plt.show()
