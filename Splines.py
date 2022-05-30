@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.interpolate import CubicSpline
 
 
 def cria_matriz_A(y, h):
@@ -16,6 +15,7 @@ def cria_matriz_A(y, h):
 
     for i in range(n):
         for j in range(n):
+            # Calcula os valores da diagonal principal - 1 na primeira e última linha e 2 * (h[k+1] + h[k])
             if (i == j):
                 if (i == 0 or i == n - 1):
                     matriz[i][j] = 1
@@ -52,6 +52,7 @@ def cria_matriz_B(y, h):
 
     for i in range(n):
         if (i != 0 and i != n-1):
+            # o if garante que a primeira e última linha permaneçam com 0
             matriz[i][0] = (3 * ((y[i+1] - y[i]) / h[i])) - \
                 (3 * ((y[i] - y[i-1])/h[i-1]))
 
@@ -69,6 +70,7 @@ def spline_cubica(x, y, n):
     '''
     h = []
 
+    # loop para calcular cada valor de h - o intervalo entre x[k] e x[k+1]
     for i in range(len(x)-1):
         h.append(x[i+1] - x[i])
 
@@ -76,7 +78,6 @@ def spline_cubica(x, y, n):
     matriz_b = cria_matriz_B(y, h)
 
     g = np.linalg.solve(matriz_A, matriz_b)
-    # insere os 0 para S0 e Sn, uma vez que a spline é natural
 
     lista_x = []
     lista_y = []
@@ -100,11 +101,13 @@ def spline_cubica(x, y, n):
             y_i = a * ((x_i - x[k]) ** 3) + b * \
                 ((x_i - x[k]) ** 2) + c * (x_i - x[k]) + d
 
-            lista_y.append(y_i)
+            lista_y.append(y_i[0])
             lista_x.append(x_i)
 
             x_i += h[k]/(n+1)
 
+    print(lista_x)
+    print(lista_y)
     return (lista_x, lista_y)
 
 
@@ -112,8 +115,7 @@ if __name__ == "__main__":
     offsets = pd.read_excel(r"offsets.xlsx")
     offsets.reset_index(drop=True)
 
-    # int(input("Quantidade de pontos a serem criados entre cada espaçamento: "))
-    n = 50
+    n = 20
 
     is_x = True
     for column in offsets:
