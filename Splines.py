@@ -11,11 +11,11 @@ def cria_matriz_A(y, h):
     h = lista de espaçamento entre pontos
     '''
     n = len(y)
-    matriz = np.zeros((n, n), dtype=float)
+    matriz = np.zeros((n, n), dtype=float) # Cria a matriz apenas com zeros inicialmente
 
     for i in range(n):
         for j in range(n):
-            # Calcula os valores da diagonal principal - 1 na primeira e última linha e 2 * (h[k+1] + h[k])
+            # Calcula os valores da diagonal principal - 1 na primeira e última linha e 2 * (h[k+1] + h[k]) nas demais
             if (i == j):
                 if (i == 0 or i == n - 1):
                     matriz[i][j] = 1
@@ -23,6 +23,7 @@ def cria_matriz_A(y, h):
                 else:
                     matriz[i][j] = 2 * (h[i-1] + h[i])
 
+            # Calcula os valores da diagonal acima principal - 0 última linha e [k+1] nas demais
             elif (i - j == -1):
                 if (i == 0):
                     matriz[i][j] = 0
@@ -30,6 +31,7 @@ def cria_matriz_A(y, h):
                 else:
                     matriz[i][j] = h[i]
 
+            # Calcula os valores da diagonal abaixo principal - 0 na primeira linha e h[k] nas demais
             elif (i - j == 1):
                 if (i == n - 1):
                     matriz[i][j] = 0
@@ -48,15 +50,13 @@ def cria_matriz_B(y, h):
     h = lista de espaçamento entre pontos
     '''
     n = len(y)
-    matriz = np.zeros((n, 1), dtype=float)
+    matriz = np.zeros((n, 1), dtype=float) # Cria a matriz apenas com zeros inicialmente
 
     for i in range(n):
-        if (i != 0 and i != n-1):
-            # o if garante que a primeira e última linha permaneçam com 0
+        if (i != 0 and i != n-1): # Garante que a primeira e última linha permaneçam apenas com 0
             matriz[i][0] = (3 * ((y[i+1] - y[i]) / h[i])) - \
                 (3 * ((y[i] - y[i-1])/h[i-1]))
 
-    print(f"b: {matriz}")
     return (matriz)
 
 
@@ -70,33 +70,28 @@ def spline_cubica(x, y, n):
     '''
     h = []
 
-    # loop para calcular cada valor de h - o intervalo entre x[k] e x[k+1]
+    # Loop para calcular cada valor de h - o intervalo entre x[k] e x[k+1]
     for i in range(len(x)-1):
         h.append(x[i+1] - x[i])
 
     matriz_A = cria_matriz_A(y, h)
     matriz_b = cria_matriz_B(y, h)
 
-    g = np.linalg.solve(matriz_A, matriz_b)
+    g = np.linalg.solve(matriz_A, matriz_b) # Usa-se o numpy para resolução da matriz g
 
     lista_x = []
     lista_y = []
 
     x_i = x[0]
 
-    for k in range(len(g)-1):  # loop para gerar cada uma das funções S; k vai até n-1
-
+    for k in range(len(g)-1):  # Loop para gerar cada uma das funções S; k vai até n-1
+        # É calculado cada coeficiente dentro do loop
         a = ((g[k+1] - g[k]) / (3 * h[k]))
         b = g[k]
         c = (1 / h[k]) * (y[k + 1] - y[k]) - (h[k] / 3) * (2 * g[k] + g[k+1])
         d = y[k]
 
-        print(f'a[{k}]: {a}')
-        print(f'b[{k}]: {b}')
-        print(f'c[{k}]: {c}')
-        print(f'd[{k}]: {d}')
-
-        # loop para calcular os pontos intermediários no intervalo da função
+        # Segundo loop para calcular os pontos intermediários no intervalo da função
         while (x_i <= x[k+1]):
             y_i = a * ((x_i - x[k]) ** 3) + b * \
                 ((x_i - x[k]) ** 2) + c * (x_i - x[k]) + d
@@ -106,28 +101,42 @@ def spline_cubica(x, y, n):
 
             x_i += h[k]/(n+1)
 
-    print(lista_x)
-    print(lista_y)
     return (lista_x, lista_y)
 
 
 if __name__ == "__main__":
-    offsets = pd.read_excel(r"offsets.xlsx")
-    offsets.reset_index(drop=True)
-
-    n = 20
+    cotas = pd.read_excel(r"cotas.xlsx") # O programa é iniciado lendo o arquivo de cotas
+    cotas.reset_index(drop=True)
+    
+    writer = pd.ExcelWriter('cotas_splined.xlsx') # Definição do escritor do objeto excel com a tabela final
+    
+    n = 20 # Definição do número de pontos intermediários
 
     is_x = True
-    for column in offsets:
-        if is_x:
-            x = offsets[column].to_numpy()
+    y_temp = []
+    for column in cotas:
+        if is_x: # A primeira coluna da tabela serão os valores X das balizas
+            x = cotas[column].to_numpy()
             is_x = False
+            
         else:
-            y = offsets[column].to_numpy()
+            y = cotas[column].to_numpy()
             lista_x, lista_y = spline_cubica(x, y, n)
 
+            y_temp.append(lista_y)
             plt.plot(lista_x, lista_y, "k")
 
     plt.axis("equal")
     plt.savefig("boat.png", transparent=False, dpi=120)
-    plt.show()
+    
+    matriz_y = {}
+    labels = list(cotas.columns)[1:]
+    
+    i = 0
+    for lista in y_temp:
+        matriz_y[ labels[i] ] = lista
+        i += 1
+            
+    novas_cotas = pd.DataFrame(data=matriz_y, index=lista_x) # Gera o arquivo onde serão inseridos os pontos intermediários
+    novas_cotas.to_excel(writer)
+    writer.save()
