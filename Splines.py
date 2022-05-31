@@ -9,9 +9,12 @@ def cria_matriz_A(y, h):
 
     y = lista de valores de y
     h = lista de espaçamento entre pontos
+    
+    matriz = retorna a matriz A calculada
     '''
     n = len(y)
-    matriz = np.zeros((n, n), dtype=float) # Cria a matriz apenas com zeros inicialmente
+    # Cria a matriz apenas com zeros inicialmente
+    matriz = np.zeros((n, n), dtype=float)
 
     for i in range(n):
         for j in range(n):
@@ -48,16 +51,19 @@ def cria_matriz_B(y, h):
 
     y = lista de valores de x
     h = lista de espaçamento entre pontos
+    
+    matriz = retorna a matriz b calculada
     '''
     n = len(y)
-    matriz = np.zeros((n, 1), dtype=float) # Cria a matriz apenas com zeros inicialmente
+    # Cria a matriz apenas com zeros inicialmente
+    matriz = np.zeros((n, 1), dtype=float)
 
     for i in range(n):
-        if (i != 0 and i != n-1): # Garante que a primeira e última linha permaneçam apenas com 0
+        if (i != 0 and i != n-1):  # Garante que a primeira e última linha permaneçam apenas com 0
             matriz[i][0] = (3 * ((y[i+1] - y[i]) / h[i])) - \
                 (3 * ((y[i] - y[i-1])/h[i-1]))
 
-    return (matriz)
+    return matriz
 
 
 def spline_cubica(x, y, n):
@@ -67,6 +73,9 @@ def spline_cubica(x, y, n):
     x = lista de valores de y
     y = lista de valores de y
     n = número de pontos a serem adicionados em cada espaçamentos
+    
+    lista_x = retorna os valores de x apos a spline
+    lista_y = retorna os valores de y apos a spline
     '''
     h = []
 
@@ -77,7 +86,8 @@ def spline_cubica(x, y, n):
     matriz_A = cria_matriz_A(y, h)
     matriz_b = cria_matriz_B(y, h)
 
-    g = np.linalg.solve(matriz_A, matriz_b) # Usa-se o numpy para resolução da matriz g
+    # Usa-se o numpy para resolução da matriz g
+    g = np.linalg.solve(matriz_A, matriz_b)
 
     lista_x = []
     lista_y = []
@@ -104,39 +114,76 @@ def spline_cubica(x, y, n):
     return (lista_x, lista_y)
 
 
-if __name__ == "__main__":
-    cotas = pd.read_excel(r"cotas.xlsx") # O programa é iniciado lendo o arquivo de cotas
-    cotas.reset_index(drop=True)
-    
-    writer = pd.ExcelWriter('cotas_splined.xlsx') # Definição do escritor do objeto excel com a tabela final
-    
-    n = 20 # Definição do número de pontos intermediários
+def itera_tabela(cotas):
+    '''
+    Realiza a spline para cada par de listas
 
-    is_x = True
-    y_temp = []
+    cotas = dataframe das cotas
+    
+    lista_x = retorna os valores de x apos a spline
+    lista_y = retorna os valores de y apos a spline
+    matriz_y = lista com as listas de valores y
+    '''
+    x = cotas.index.values
+    matriz_y = []
+
     for column in cotas:
-        if is_x: # A primeira coluna da tabela serão os valores X das balizas
-            x = cotas[column].to_numpy()
-            is_x = False
-            
-        else:
-            y = cotas[column].to_numpy()
-            lista_x, lista_y = spline_cubica(x, y, n)
+        y = cotas[column].to_numpy()
+        lista_x, lista_y = spline_cubica(x, y, n)
 
-            y_temp.append(lista_y)
-            plt.plot(lista_x, lista_y, "k")
+        matriz_y.append(lista_y)
 
-    plt.axis("equal")
-    plt.savefig("boat.png", transparent=False, dpi=120)
+    return lista_x, lista_y, matriz_y
+
+
+def atualiza_xlsx(cotas, matriz_y, lista_x):
+    '''
+    Atualiza o arquivo com as cotas e pontos intermediários
+
+    cotas = dataframe das cotas
+    matriz_y = lista com as listas de valores y
     
-    matriz_y = {}
-    labels = list(cotas.columns)[1:]
-    
+    novas_cotas = dataframe atualizado
+    '''
+    dict_y = {}
+    labels = list(cotas.columns)
+
     i = 0
-    for lista in y_temp:
-        matriz_y[ labels[i] ] = lista
+    for lista in matriz_y:  # Cria um dicionário com as labels de chaves a partir da matriz de y
+        dict_y[labels[i]] = lista
         i += 1
-            
-    novas_cotas = pd.DataFrame(data=matriz_y, index=lista_x) # Gera o arquivo onde serão inseridos os pontos intermediários
+
+    # Gera o arquivo onde serão inseridos os pontos intermediários
+    novas_cotas = pd.DataFrame(data=dict_y, index=lista_x)
+    novas_cotas.to_excel(writer)
+    writer.save()
+
+    return novas_cotas
+
+
+if __name__ == "__main__":
+    # O programa é iniciado lendo o arquivo de cotas
+    cotas = pd.read_excel("cotas.xlsx", index_col=0)
+
+    # Definição do escritor do objeto excel com a tabela final
+    writer = pd.ExcelWriter('cotas_splined.xlsx')
+
+    n = 20  # Definição do número de pontos intermediários
+
+    plt.axis("equal")  # Definição dos eixos dos gráficos como iguais entre si
+
+    # Calcula os pontos intermediários das balizas
+    lista_x, lista_y, matriz_y = itera_tabela(cotas)
+    novas_cotas = atualiza_xlsx(cotas, matriz_y, lista_x)
+
+    # Transpõe a tabela de cotas para calcular o outro eixo
+    cotas_transpostas = pd.DataFrame(data=novas_cotas).T
+
+    # Calcula os pontos intermediários das linhas d'água
+    lista_x_t, lista_y_t, matriz_y_t = itera_tabela(cotas_transpostas)
+    novas_cotas = atualiza_xlsx(cotas_transpostas, matriz_y_t, lista_x_t)
+
+    # Transpõe novamente a tabela de cotas para voltar a configuração inicial
+    novas_cotas = pd.DataFrame(data=novas_cotas).T
     novas_cotas.to_excel(writer)
     writer.save()
