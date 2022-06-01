@@ -9,7 +9,7 @@ def cria_matriz_A(y, h):
 
     y = lista de valores de y
     h = lista de espaçamento entre pontos
-    
+
     matriz = retorna a matriz A calculada
     '''
     n = len(y)
@@ -51,7 +51,7 @@ def cria_matriz_B(y, h):
 
     y = lista de valores de x
     h = lista de espaçamento entre pontos
-    
+
     matriz = retorna a matriz b calculada
     '''
     n = len(y)
@@ -73,7 +73,7 @@ def spline_cubica(x, y, n):
     x = lista de valores de y
     y = lista de valores de y
     n = número de pontos a serem adicionados em cada espaçamentos
-    
+
     lista_x = retorna os valores de x apos a spline
     lista_y = retorna os valores de y apos a spline
     '''
@@ -119,9 +119,8 @@ def itera_tabela(cotas):
     Realiza a spline para cada par de listas
 
     cotas = dataframe das cotas
-    
+
     lista_x = retorna os valores de x apos a spline
-    lista_y = retorna os valores de y apos a spline
     matriz_y = lista com as listas de valores y
     '''
     x = cotas.index.values
@@ -133,7 +132,7 @@ def itera_tabela(cotas):
 
         matriz_y.append(lista_y)
 
-    return lista_x, lista_y, matriz_y
+    return lista_x, matriz_y
 
 
 def atualiza_xlsx(cotas, matriz_y, lista_x):
@@ -142,7 +141,7 @@ def atualiza_xlsx(cotas, matriz_y, lista_x):
 
     cotas = dataframe das cotas
     matriz_y = lista com as listas de valores y
-    
+
     novas_cotas = dataframe atualizado
     '''
     dict_y = {}
@@ -170,20 +169,34 @@ if __name__ == "__main__":
 
     n = 20  # Definição do número de pontos intermediários
 
-    plt.axis("equal")  # Definição dos eixos dos gráficos como iguais entre si
-
     # Calcula os pontos intermediários das balizas
-    lista_x, lista_y, matriz_y = itera_tabela(cotas)
+    lista_x, matriz_y = itera_tabela(cotas)
     novas_cotas = atualiza_xlsx(cotas, matriz_y, lista_x)
+
+    # Gráfico das balizas pela meia boca
+    plt.axis("equal")
+    
+    plt.title("Plano de Linha d'Água")
+    plt.xlabel("Balizas")
+    plt.ylabel("Meia-boca")
+
+    for lista_y in matriz_y:
+        plt.plot(lista_x, lista_y, color='k', alpha=0.75)
+
+    plt.savefig("Plano-de-Linhas.png", dpi=120)
 
     # Transpõe a tabela de cotas para calcular o outro eixo
     cotas_transpostas = pd.DataFrame(data=novas_cotas).T
 
     # Calcula os pontos intermediários das linhas d'água
-    lista_x_t, lista_y_t, matriz_y_t = itera_tabela(cotas_transpostas)
+    lista_x_t, matriz_y_t = itera_tabela(cotas_transpostas)
     novas_cotas = atualiza_xlsx(cotas_transpostas, matriz_y_t, lista_x_t)
 
     # Transpõe novamente a tabela de cotas para voltar a configuração inicial
     novas_cotas = pd.DataFrame(data=novas_cotas).T
     novas_cotas.to_excel(writer)
     writer.save()
+
+    #####################################################
+    
+    
