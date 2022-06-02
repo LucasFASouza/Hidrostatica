@@ -1,6 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def cria_matriz_A(y, h):
@@ -45,9 +45,9 @@ def cria_matriz_A(y, h):
     return matriz
 
 
-def cria_matriz_B(y, h):
+def cria_matriz_b(y, h):
     '''
-    Cria a matriz B
+    Cria a matriz b 
 
     y = lista de valores de x
     h = lista de espaçamento entre pontos
@@ -84,7 +84,7 @@ def spline_cubica(x, y, n):
         h.append(x[i+1] - x[i])
 
     matriz_A = cria_matriz_A(y, h)
-    matriz_b = cria_matriz_B(y, h)
+    matriz_b = cria_matriz_b(y, h)
 
     # Usa-se o numpy para resolução da matriz g
     g = np.linalg.solve(matriz_A, matriz_b)
@@ -174,6 +174,7 @@ if __name__ == "__main__":
     novas_cotas = atualiza_xlsx(cotas, matriz_y, lista_x)
 
     # Gráfico das balizas pela meia boca
+    plt.figure()
     plt.axis("equal")
     
     plt.title("Plano de Linha d'Água")
